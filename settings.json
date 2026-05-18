@@ -4,9 +4,10 @@
   "defaultModel": "moonshotai/kimi-k2.6",
   "defaultThinkingLevel": "medium",
   "extensions": [
-    "~/.pi/agent/extensions/utils/pi-caveman/index.ts",
-    "~/.pi/agent/extensions/utils/pi-web-access/index.ts",
-    "~/.pi/agent/extensions/utils/pi-hermes-memory/index.ts"
+    "~/.pi/agent/extensions/pi-caveman/index.ts",
+    "~/.pi/agent/extensions/pi-critical-thinking/index.ts",
+    "~/.pi/agent/extensions/pi-web-access/index.ts",
+    "~/.pi/agent/extensions/pi-hermes-memory/index.ts"
   ],
   "packages": [
     "npm:pi-skill-palette"

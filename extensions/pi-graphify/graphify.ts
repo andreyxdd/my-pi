@@ -1,8 +1,45 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { spawn } from "node:child_process";
-import { existsSync, readdirSync, statSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, statSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
+
+// ── Project-scoped config ──────────────────────────────────────────────
+// Looks for {cwd}/.pi/graphify-config.json (walking up parent dirs).
+// { "enabled": true }  → auto-build + inject context.
+// Missing config       → silent (opt-in per project).
+
+function findProjectConfigPath(cwd: string): string | null {
+  let dir = resolve(cwd);
+  const root = resolve("/");
+  while (true) {
+    const candidate = join(dir, ".pi", "graphify-config.json");
+    if (existsSync(candidate)) return candidate;
+    const parent = resolve(dir, "..");
+    if (parent === dir || parent === root) break;
+    dir = parent;
+  }
+  return null;
+}
+
+function loadProjectConfig(cwd: string): { enabled: boolean } | null {
+  const path = findProjectConfigPath(cwd);
+  if (!path) return null;
+  try {
+    const raw = readFileSync(path, "utf-8");
+    return { enabled: false, ...JSON.parse(raw) };
+  } catch {
+    return null;
+  }
+}
+
+function saveProjectConfig(cwd: string, enabled: boolean) {
+  const dir = resolve(cwd);
+  const configDir = join(dir, ".pi");
+  const configPath = join(configDir, "graphify-config.json");
+  mkdirSync(configDir, { recursive: true });
+  writeFileSync(configPath, JSON.stringify({ enabled }, null, 2) + "\n");
+}
 
 interface GraphSummary {
   nodes: number;
@@ -192,31 +229,54 @@ export default function (pi: ExtensionAPI) {
   pi.on("session_start", async (_event, ctx) => {
     const installed = await checkGraphifyInstalled();
     if (!installed) {
+      ctx.ui.setStatus("graphify", "graphify: not installed");
       ctx.ui.notify("Graphify not installed. Run: uv tool install graphifyy", "warning");
       return;
     }
 
     const cwd = resolve(ctx.cwd);
+    const projectConfig = loadProjectConfig(cwd);
+
+    if (!projectConfig) {
+      ctx.ui.setStatus("graphify", "");
+      return;
+    }
+
+    if (!projectConfig.enabled) {
+      ctx.ui.setStatus("graphify", "graphify: off");
+      return;
+    }
     const hasCode = await hasCodeFiles(cwd);
-    if (!hasCode) return;
+    if (!hasCode) {
+      ctx.ui.setStatus("graphify", "graphify: no code files");
+      return;
+    }
 
     const needsBuild = await graphNeedsRebuild(cwd);
     if (!needsBuild) {
       const sum = await getGraphSummary(cwd);
       if (sum) {
         const stale = await isGraphStale(cwd);
-        const status = stale ? `${sum.nodes}N · ${sum.edges}E · ${sum.communities}C [STALE]` : `${sum.nodes}N · ${sum.edges}E · ${sum.communities}C`;
+        const status = stale
+          ? `graphify: ${sum.nodes}N · ${sum.edges}E · ${sum.communities}C [stale]`
+          : `graphify: ${sum.nodes}N · ${sum.edges}E · ${sum.communities}C`;
         ctx.ui.setStatus("graphify", status);
+      } else {
+        ctx.ui.setStatus("graphify", "graphify: ready — run /graphify");
       }
       return;
     }
 
+    ctx.ui.setStatus("graphify", "graphify: building ...");
     buildGraph(cwd, ctx).catch(() => {});
   });
 
   // Inject graph context into system prompt when graph exists
   pi.on("before_agent_start", async (_event, ctx) => {
-    const sum = await getGraphSummary(resolve(ctx.cwd));
+    const cwd = resolve(ctx.cwd);
+    const projectConfig = loadProjectConfig(cwd);
+    if (!projectConfig?.enabled) return {};
+    const sum = await getGraphSummary(cwd);
     if (!sum) return {};
 
     const stale = await isGraphStale(resolve(ctx.cwd));
@@ -246,23 +306,60 @@ export default function (pi: ExtensionAPI) {
 
   // Manual command
   pi.registerCommand("graphify", {
-    description: "Build or rebuild the knowledge graph",
+    description: "Build/rebuild graph, or toggle on/off for this project",
+    getArgumentCompletions: (prefix: string) => {
+      const items = [
+        { value: "on", label: "on", description: "Enable auto-build for this project (creates .pi/graphify-config.json)" },
+        { value: "off", label: "off", description: "Disable auto-build for this project" },
+      ].filter((i) => i.value.startsWith(prefix.trim().toLowerCase()));
+      return items.length ? items : null;
+    },
     handler: async (args, ctx) => {
       const installed = await checkGraphifyInstalled();
       if (!installed) {
         ctx.ui.notify("Run: uv tool install graphifyy", "error");
         return;
       }
+
+      const arg = args?.trim().toLowerCase();
       const cwd = resolve(ctx.cwd);
-      if (!args || args.trim() === "") {
+
+      if (arg === "on" || arg === "off") {
+        saveProjectConfig(cwd, arg === "on");
+        ctx.ui.notify(`Graphify ${arg} for this project`, "info");
+        if (arg === "on") {
+          if (await hasCodeFiles(cwd)) {
+            const needsBuild = await graphNeedsRebuild(cwd);
+            if (needsBuild) {
+              buildGraph(cwd, ctx).catch(() => {});
+            } else {
+              const sum = await getGraphSummary(cwd);
+              if (sum) {
+                const stale = await isGraphStale(cwd);
+                ctx.ui.setStatus("graphify", stale
+                  ? `graphify: ${sum.nodes}N · ${sum.edges}E · ${sum.communities}C [stale]`
+                  : `graphify: ${sum.nodes}N · ${sum.edges}E · ${sum.communities}C`);
+              } else {
+                ctx.ui.setStatus("graphify", "graphify: on");
+              }
+            }
+          } else {
+            ctx.ui.setStatus("graphify", "graphify: on — no code files");
+          }
+        } else {
+          ctx.ui.setStatus("graphify", "graphify: off");
+        }
+        return;
+      }
+
+      if (!arg || arg === "") {
         await buildGraph(cwd, ctx);
         return;
       }
-      const trimmed = args.trim();
       // Passthrough to graphify CLI for subcommands
-      const { stdout, stderr, exitCode } = await execGraphify(trimmed.split(/\s+/), cwd);
+      const { stdout, stderr, exitCode } = await execGraphify(arg.split(/\s+/), cwd);
       if (exitCode !== 0) {
-        ctx.ui.notify(`graphify ${trimmed} failed: ${stderr || stdout}`, "error");
+        ctx.ui.notify(`graphify ${arg} failed: ${stderr || stdout}`, "error");
       } else {
         ctx.ui.notify(stdout.trim().split("\n").pop() ?? "Done", "info");
       }
@@ -389,6 +486,8 @@ export default function (pi: ExtensionAPI) {
     const ext = touchedPath.slice(touchedPath.lastIndexOf("."));
     if (!codeExts.has(ext)) return;
     const cwd = resolve(ctx.cwd);
+    const projectConfig = loadProjectConfig(cwd);
+    if (!projectConfig?.enabled) return;
     const graphPath = join(cwd, "graphify-out", "graph.json");
     if (existsSync(graphPath)) {
       try {

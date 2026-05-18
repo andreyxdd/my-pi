@@ -114,7 +114,7 @@ async function test(name: string, fn: () => Promise<void>) {
 // ============ LOAD EXTENSION ============
 const { createJiti } = require("/Users/andreyxdd/.nvm/versions/node/v24.14.0/lib/node_modules/@earendil-works/pi-coding-agent/node_modules/jiti");
 const jiti = createJiti(__filename);
-const extensionModule = jiti("/Users/andreyxdd/.pi/agent/extensions/utils/graphify/index.ts");
+const extensionModule = jiti("/Users/andreyxdd/.pi/agent/extensions/pi-graphify/index.ts");
 const extensionFactory = extensionModule.default;
 
 // ============ TESTS ============

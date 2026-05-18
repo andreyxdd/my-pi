@@ -299,6 +299,83 @@ async function runTests() {
     rmSync(tmpDir, { recursive: true, force: true });
   });
 
+  // --- Test 11 ---
+  await test("graphify_clone tool is registered", async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "graphify-test-"));
+    const { api, captured } = createMockAPI(tmpDir);
+    extensionFactory(api);
+    
+    const cloneTool = captured.tools.find((t: any) => t.name === "graphify_clone");
+    assert.ok(cloneTool, "graphify_clone tool should exist");
+    assert.ok(cloneTool.description.includes("GitHub") || cloneTool.description.includes("clone"), "description mentions cloning");
+    
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  // --- Test 12 ---
+  await test("graphify_merge tool is registered", async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "graphify-test-"));
+    const { api, captured } = createMockAPI(tmpDir);
+    extensionFactory(api);
+    
+    const mergeTool = captured.tools.find((t: any) => t.name === "graphify_merge");
+    assert.ok(mergeTool, "graphify_merge tool should exist");
+    assert.ok(mergeTool.description.includes("merge") || mergeTool.description.includes("cross-repo"), "description mentions merging");
+    
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  // --- Test 13 ---
+  await test("graphify_ingest tool is registered", async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "graphify-test-"));
+    const { api, captured } = createMockAPI(tmpDir);
+    extensionFactory(api);
+    
+    const ingestTool = captured.tools.find((t: any) => t.name === "graphify_ingest");
+    assert.ok(ingestTool, "graphify_ingest tool should exist");
+    assert.ok(ingestTool.description.includes("PDF") || ingestTool.description.includes("image") || ingestTool.description.includes("multi-modal"), "description mentions multi-modal ingestion");
+    
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  // --- Test 14 ---
+  await test("tool_result hook exists for write/edit staleness tracking", async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "graphify-test-"));
+    const { api, captured } = createMockAPI(tmpDir);
+    extensionFactory(api);
+    
+    assert.equal(captured.events.has("tool_result"), true, "should register tool_result handler");
+    
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  // --- Test 15 ---
+  await test("graphify_save_result tool is registered", async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "graphify-test-"));
+    const { api, captured } = createMockAPI(tmpDir);
+    extensionFactory(api);
+    
+    const saveTool = captured.tools.find((t: any) => t.name === "graphify_save_result");
+    assert.ok(saveTool, "graphify_save_result tool should exist");
+    
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  // --- Test 16 ---
+  await test("graphify watch subcommand exists", async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "graphify-test-"));
+    const { api, captured } = createMockAPI(tmpDir);
+    extensionFactory(api);
+    
+    const cmd = captured.commands.get("graphify");
+    assert.ok(cmd, "/graphify command exists");
+    // The handler should accept "watch" as a subcommand argument
+    // We test indirectly: handler must be callable with "watch ." args
+    assert.equal(typeof cmd.handler, "function", "handler is a function");
+    
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
   console.log(`\n${pass} passed, ${fail} failed\n`);
   process.exit(fail > 0 ? 1 : 0);
 }

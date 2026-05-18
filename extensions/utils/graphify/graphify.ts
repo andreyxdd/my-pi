@@ -51,19 +51,23 @@ function findGraphifyPython(): string | null {
   return null;
 }
 
-function execCommand(cmd: string, args: string[], cwd: string): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+function execCommand(cmd: string, args: string[], cwd: string, timeoutMs?: number): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   return new Promise((res) => {
     const proc = spawn(cmd, args, { cwd, env: process.env });
     let stdout = "";
     let stderr = "";
+    let killed = false;
     proc.stdout.on("data", (d) => (stdout += d));
     proc.stderr.on("data", (d) => (stderr += d));
-    proc.on("close", (code) => res({ stdout, stderr, exitCode: code ?? 0 }));
+    proc.on("close", (code) => res({ stdout, stderr, exitCode: killed ? 124 : (code ?? 0) }));
+    if (timeoutMs && timeoutMs > 0) {
+      setTimeout(() => { killed = true; proc.kill("SIGTERM"); }, timeoutMs);
+    }
   });
 }
 
-function execGraphify(args: string[], cwd: string): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-  return execCommand("graphify", args, cwd);
+function execGraphify(args: string[], cwd: string, timeoutMs?: number): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  return execCommand("graphify", args, cwd, timeoutMs);
 }
 
 function execGraphifyPython(script: string, cwd: string): Promise<{ stdout: string; stderr: string; exitCode: number }> {
@@ -374,6 +378,160 @@ export default function (pi: ExtensionAPI) {
         content: [{ type: "text", text: stdout || "No explanation found" }],
         details: { node: params.node },
       };
+    },
+  });
+
+  // tool_result hook for auto staleness tracking on code edits
+  pi.on("tool_result", async (event, ctx) => {
+    if (event.toolName !== "write" && event.toolName !== "edit") return;
+    const codeExts = new Set([".py", ".js", ".ts", ".go", ".rs", ".java", ".cpp", ".c", ".rb", ".swift", ".kt", ".cs", ".scala", ".php", ".jsx", ".tsx"]);
+    const touchedPath = event.input?.path ?? "";
+    const ext = touchedPath.slice(touchedPath.lastIndexOf("."));
+    if (!codeExts.has(ext)) return;
+    const cwd = resolve(ctx.cwd);
+    const graphPath = join(cwd, "graphify-out", "graph.json");
+    if (existsSync(graphPath)) {
+      try {
+        writeFileSync(join(cwd, "graphify-out", "needs_update"), `stale after ${event.toolName} ${touchedPath}`);
+        ctx.ui.setStatus("graphify", "Graph stale — run /graphify to rebuild");
+      } catch { /* ignore */ }
+    }
+  });
+
+  // Clone tool callable by the LLM
+  pi.registerTool({
+    name: "graphify_clone",
+    label: "Graphify Clone",
+    description: "Clone a remote GitHub repository locally for graphify analysis. Use to explore external codebases before building their knowledge graph.",
+    promptSnippet: "Clone a GitHub repo to analyze with graphify",
+    parameters: Type.Object({
+      url: Type.String({ description: "GitHub repository URL" }),
+      outDir: Type.Optional(Type.String({ description: "Optional output directory (default: ~/.graphify/repos/<owner>/<repo>)" })),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const args = ["clone", params.url];
+      if (params.outDir) args.push("--out", params.outDir);
+      const { stdout, stderr, exitCode } = await execGraphify(args, resolve(ctx.cwd), 120_000);
+      if (exitCode !== 0) {
+        return {
+          content: [{ type: "text", text: `Clone failed: ${stderr || stdout}` }],
+          isError: true,
+        };
+      }
+      return {
+        content: [{ type: "text", text: stdout || "Cloned successfully. Run /graphify on the cloned directory to build its knowledge graph." }],
+        details: { url: params.url },
+      };
+    },
+  });
+
+  // Merge tool callable by the LLM
+  pi.registerTool({
+    name: "graphify_merge",
+    label: "Graphify Merge",
+    description: "Merge two or more graph.json files into a single cross-repo knowledge graph. Use for cross-project analysis.",
+    promptSnippet: "Merge multiple graph.json files into one cross-repo graph",
+    parameters: Type.Object({
+      graphs: Type.Array(Type.String(), { minItems: 2, description: "Paths to graph.json files to merge" }),
+      outPath: Type.Optional(Type.String({ description: "Output path (default: graphify-out/merged-graph.json)" })),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      if (params.graphs.length < 2) {
+        return {
+          content: [{ type: "text", text: "Need at least 2 graph files to merge." }],
+          isError: true,
+        };
+      }
+      const args = ["merge-graphs", ...params.graphs];
+      if (params.outPath) args.push("--out", params.outPath);
+      const { stdout, stderr, exitCode } = await execGraphify(args, resolve(ctx.cwd), 120_000);
+      if (exitCode !== 0) {
+        return {
+          content: [{ type: "text", text: `Merge failed: ${stderr || stdout}` }],
+          isError: true,
+        };
+      }
+      return {
+        content: [{ type: "text", text: stdout || "Merged successfully" }],
+        details: { graphs: params.graphs },
+      };
+    },
+  });
+
+  // Ingest tool callable by the LLM (multi-modal)
+  pi.registerTool({
+    name: "graphify_ingest",
+    label: "Graphify Ingest",
+    description: "Ingest a PDF, image, URL, or document into the knowledge graph. Use for multi-modal codebase analysis.",
+    promptSnippet: "Ingest PDFs, images, URLs, or documents into the knowledge graph",
+    parameters: Type.Object({
+      path: Type.String({ description: "Path to file or URL to ingest" }),
+      author: Type.Optional(Type.String({ description: "Optional author tag" })),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const args = ["add", params.path];
+      if (params.author) args.push("--author", params.author);
+      const { stdout, stderr, exitCode } = await execGraphify(args, resolve(ctx.cwd), 300_000);
+      if (exitCode !== 0) {
+        return {
+          content: [{ type: "text", text: `Ingest failed: ${stderr || stdout}` }],
+          isError: true,
+        };
+      }
+      return {
+        content: [{ type: "text", text: stdout || "Ingested successfully" }],
+        details: { path: params.path },
+      };
+    },
+  });
+
+  // Save result tool for memory feedback loop
+  pi.registerTool({
+    name: "graphify_save_result",
+    label: "Graphify Save Result",
+    description: "Save a query result to the graph memory for future context. Use to build up institutional knowledge.",
+    promptSnippet: "Save a Q&A result into the graph memory feedback loop",
+    parameters: Type.Object({
+      question: Type.String({ description: "The question that was asked" }),
+      answer: Type.String({ description: "The answer to save" }),
+      nodes: Type.Optional(Type.Array(Type.String(), { description: "Node labels cited in the answer" })),
+      type: Type.Optional(StringEnum(["query", "path_query", "explain"] as const)),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const args = ["save-result", "--question", params.question, "--answer", params.answer];
+      if (params.nodes) args.push("--nodes", ...params.nodes);
+      if (params.type) args.push("--type", params.type);
+      const { stdout, stderr, exitCode } = await execGraphify(args, resolve(ctx.cwd), 60_000);
+      if (exitCode !== 0) {
+        return {
+          content: [{ type: "text", text: `Save failed: ${stderr || stdout}` }],
+          isError: true,
+        };
+      }
+      return {
+        content: [{ type: "text", text: stdout || "Saved successfully" }],
+        details: { question: params.question },
+      };
+    },
+  });
+
+  // Watch command (background)
+  pi.registerCommand("graphify-watch", {
+    description: "Watch code changes and auto-rebuild graph (background daemon)",
+    handler: async (_args, ctx) => {
+      const installed = await checkGraphifyInstalled();
+      if (!installed) {
+        ctx.ui.notify("Run: uv tool install graphifyy", "error");
+        return;
+      }
+      // graphify watch is a long-running daemon; spawn detached so it survives
+      const proc = spawn("graphify", ["watch", "."], {
+        cwd: resolve(ctx.cwd),
+        detached: true,
+        stdio: "ignore",
+      });
+      proc.unref();
+      ctx.ui.notify("graphify watch started in background", "info");
     },
   });
 }

@@ -1,0 +1,9 @@
+{
+  "lastChangelogVersion": "0.73.1",
+  "defaultProvider": "openrouter",
+  "defaultModel": "moonshotai/kimi-k2.6",
+  "defaultThinkingLevel": "medium",
+  "skills": [
+    "+../../.agents/skills/accessibility/SKILL.md"
+  ]
+}

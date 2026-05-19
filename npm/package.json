@@ -3,8 +3,7 @@
   "private": true,
   "dependencies": {
     "@anthropic-ai/sandbox-runtime": "^0.0.26",
-    "pi-caveman": "^1.0.7",
-    "pi-skill-palette": "^1.1.0",
-    "pi-web-access": "^0.10.7"
+    "pi-btw": "^0.4.0",
+    "pi-skill-palette": "^1.1.0"
   }
 }

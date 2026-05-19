@@ -3,12 +3,8 @@
   "defaultProvider": "openrouter",
   "defaultModel": "moonshotai/kimi-k2.6",
   "defaultThinkingLevel": "medium",
-  "extensions": [
-    "~/.pi/agent/extensions/pi-caveman/index.ts",
-    "~/.pi/agent/extensions/pi-critical-thinking/index.ts",
-    "~/.pi/agent/extensions/pi-web-access/index.ts",
-  ],
   "packages": [
-    "npm:pi-skill-palette"
+    "npm:pi-skill-palette",
+    "npm:pi-btw"
   ]
 }

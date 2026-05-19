@@ -5,6 +5,9 @@
   "defaultThinkingLevel": "medium",
   "packages": [
     "npm:pi-skill-palette",
-    "npm:pi-btw"
+    "npm:pi-btw",
+    "npm:pi-web-access",
+    "npm:pi-caveman",
+    "npm:@juicesharp/rpiv-ask-user-question"
   ]
 }

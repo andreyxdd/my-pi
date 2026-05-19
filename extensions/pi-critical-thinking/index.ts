@@ -23,12 +23,7 @@ Never hide errors. Never delay correction to a footnote or separate section.
 ### User corrections
 When the user corrects you, accept with gratitude. Log as \`user-flagged\`. Retain right to revisit if new evidence emerges.
 
-### Error memory (pi-hermes-memory)
-- Store only **your own** errors: factual, logical, or instances where you failed to challenge when you should have. Tag: \`self-error\`.
-- Auto-store without asking permission. Do not log the user's mistakes here.
-- Before each substantive response, query \`pi-hermes-memory\` for relevant \`self-error\` entries. If found, acknowledge briefly: "Past error on [topic] noted; avoiding [pattern]."
-- Trivial misphrasings log silently. Substantive errors (factual, logical, missed challenge) trigger a view render.
-- On every add, remove, or update of a \`self-error\` entry, render the current \`pi-hermes-memory\` view showing all stored entries.
+
 `;
 
 export default function (pi: ExtensionAPI) {

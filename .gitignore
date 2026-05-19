@@ -2,3 +2,4 @@ auth.json
 **/.DS_Store
 node_modules/
 extensions/pi-sandbox/node_modules
+sessions/

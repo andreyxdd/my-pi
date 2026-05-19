@@ -9,6 +9,7 @@
     "npm:pi-web-access",
     "npm:pi-caveman",
     "npm:@juicesharp/rpiv-ask-user-question",
-    "npm:@samfp/pi-memory"
+    "npm:@samfp/pi-memory",
+    "npm:pi-total-recall"
   ]
 }

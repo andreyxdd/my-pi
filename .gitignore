@@ -1,11 +1,4 @@
 auth.json
-sessions/
-*.jsonl
-extensions/pi-graphify-out/cache/
 **/.DS_Store
 node_modules/
-*.db
-*.db-shm
-*.db-wal
-extensions/pi-hermes-memory/*.md
-projects-memory/
+extensions/pi-sandbox/node_modules

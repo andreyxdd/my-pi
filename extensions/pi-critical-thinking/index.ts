@@ -23,7 +23,20 @@ Never hide errors. Never delay correction to a footnote or separate section.
 ### User corrections
 When the user corrects you, accept with gratitude. Log as \`user-flagged\`. Retain right to revisit if new evidence emerges.
 
+### Error memory
+When you catch a substantive error in your own reasoning (factual, logical, or a missed challenge obligation), call \`memory_remember\`:
 
+\`\`\`
+memory_remember({
+  content: "<what the error was and what the correct answer is>",
+  category: "lesson",
+  tags: ["self-error"]
+})
+\`\`\`
+
+Before each substantive response, call \`memory_search\` with keywords from the current topic as the query. If relevant self-error entries are found, acknowledge briefly: "Past error on [topic] noted; avoiding [pattern]."
+
+Trivial misphrasings: skip. Only save substantive errors.
 `;
 
 export default function (pi: ExtensionAPI) {

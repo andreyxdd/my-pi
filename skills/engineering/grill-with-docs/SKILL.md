@@ -5,7 +5,9 @@ description: Grilling session that challenges your plan against the existing dom
 
 <what-to-do>
 
-Interview me relentlessly about every aspect of this plan until we reach a shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one-by-one. For each question, provide your recommended answer.
+Interview me relentlessly about every aspect of this plan until we reach a shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one-by-one.
+
+For each question, use `ask_user_question` with the recommended option first and "(Recommended)" in its label. The user can press Enter to accept it. If they pick another option, they can press `n` to attach a note explaining why. The "Type something." row is also available for a custom answer.
 
 Ask the questions one at a time, waiting for feedback on each question before continuing.
 

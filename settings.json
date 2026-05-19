@@ -10,6 +10,7 @@
     "npm:pi-caveman",
     "npm:@juicesharp/rpiv-ask-user-question",
     "npm:pi-total-recall",
-    "npm:@narumitw/pi-goal"
+    "npm:@narumitw/pi-goal",
+    "npm:pi-cmux"
   ]
 }

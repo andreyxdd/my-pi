@@ -1,7 +1,7 @@
 {
   "lastChangelogVersion": "0.75.3",
   "defaultProvider": "openrouter",
-  "defaultModel": "moonshotai/kimi-k2.6",
+  "defaultModel": "openai/gpt-5.1-chat",
   "defaultThinkingLevel": "medium",
   "packages": [
     "npm:pi-skill-palette",

@@ -3,7 +3,7 @@
   "private": true,
   "dependencies": {
     "@anthropic-ai/sandbox-runtime": "^0.0.26",
-    "@juicesharp/rpiv-ask-user-question": "^1.9.2",
+    "@juicesharp/rpiv-ask-user-question": "^1.10.2",
     "@narumitw/pi-goal": "^0.1.27",
     "@samfp/pi-memory": "^1.3.2",
     "pi-btw": "^0.4.0",
